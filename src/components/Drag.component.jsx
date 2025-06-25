@@ -46,7 +46,6 @@ const DragBlock = props => {
 export default DragBlock;
 
 
-
 const colorConstants ={
     move: 'blue-500',
     turn: 'blue-500',

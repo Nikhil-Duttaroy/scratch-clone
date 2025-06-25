@@ -4,17 +4,6 @@ export const speakTrigger = time => {
     })
 }
 
-export const costumeTrigger = (next, which, count, inUse) => {
-    let id = inUse
-    
-    if(next)
-        id = (inUse + 1) % count
-    else
-        id = which
-    
-    return id
-}
-
 export const resizeTrigger = (size, definite, to) => {
     let newSize = size
 

@@ -1,4 +1,4 @@
-import { useState,useEffect } from "react";
+import { useState,useEffect, useMemo, useCallback } from "react";
 import CatSprite from "./Sprites/catSprite.component.jsx";
 import PreviewArea from "./Layout/PreviewArea.component.jsx";
 import MidArea from "./Layout/MidArea.component.jsx";
@@ -7,7 +7,6 @@ import Icon from "./Icon.component.jsx";
 import DragBlock from "./Drag.component.jsx";
 import { gotoTrigger, moveTrigger, turnTrigger } from "../util/motionUtil.js";
 import {
-  costumeTrigger,
   resizeTrigger,
   speakTrigger,
 } from "../util/lookUtil.js";
@@ -17,101 +16,83 @@ import CostumeArea from "./Layout/CostumeArea.component.jsx";
 import { categories } from "../util/categoryies.js";
 import { waitForSprite } from "../util/controlUtil.js";
 import ReplayArea from "./Layout/ReplayArea.component.jsx";
-
-
-let spriteAt = {
-    x: 0,
-    y: 0,
-    deg: 0
-}
-
-let spriteSize = 1
+import DogSprite from "./Sprites/dogSprite.component.jsx";
 
 const Editor = () => {
-    // editor states like - Run, Stop, change Section
-    const [flagClicked, setFlagClicked] = useState(false);
-    const [section, setSection] = useState(0);
-
-    // costume states
+    // --- State Declarations ---
+    const [flagClicked, setFlagClicked] = useState(false); // Whether the green flag (run) is clicked
+    const [section, setSection] = useState(0); // Current editor section (0: Code, 1: Costume, 2: Replay)
     const [costumes, setCostumes] = useState([
         CatSprite,
-       
+        DogSprite, // TODO: Remove duplicate if not needed
     ]);
-    const [inUse, setInUse] = useState(0);
+    const [inUse, setInUse] = useState(0); // Index of the currently used costume
+    const [spriteClicked, setSpriteClicked] = useState(false); // Whether the sprite was clicked
+    const [spritePinned, setSpritePinned] = useState(false); // Whether the sprite is pinned
+    const [speak, setSpeak] = useState(null); // Current speech/thought bubble state
+    const [block, setBlock] = useState(null); // Block currently being dragged or manipulated
+    const [blockAt, setBlockAt] = useState({ x: 0, y: 0 }); // Position of the dragged block
+    const [combinations, setCombinations] = useState([]); // All block combinations (scripts)
+    const [combinationPinned, setCombinationPinned] = useState(null); // Currently pinned combination (for editing)
+    const [replayList, setReplayList] = useState([]); // List of block runs for replay
+    const [replayId, setReplayId] = useState(0); // Current replay index
+    const [spriteAt, setSpriteAt] = useState({ x: 0, y: 0, deg: 0 }); // Sprite's position and direction
+    const [spriteSize, setSpriteSize] = useState(1); // Sprite's size (scale)
 
-    // sprite related
-    const [spriteClicked, setSpriteClicked] = useState(false);
-    const [spritePinned, setSpritePinned] = useState(false);
+    // --- Memoized Values ---
+    /**
+     * Filters combinations to only those whose first block is a 'when flag clicked' or 'when sprite clicked' event,
+     * depending on the current run mode.
+     */
+    const combinationsWithWhen = useMemo(() => {
+        return combinations.filter(combo =>
+            combo.block[0].what === (flagClicked ? 'flag' : 'sprite')
+        );
+    }, [combinations, flagClicked]);
 
-    const [speak, setSpeak] = useState(null);
-
-    const [updateCount, setUpdateCount] = useState(0);
-
-    // block drag related
-    const [block, setBlock] = useState(null);
-    const [blockAt, setBlockAt] = useState({ x: 0, y: 0 });
-
-    // eg:cobination = [
-    //     {
-    //       position: { x: 120, y: 80 },
-    //       block: [
-    //         { what: "flag", options: {}, default: null }, // "when flag clicked"
-    //         { what: "move", options: { dir: "r", units: 10 }, default: null }, // "move 10 steps"
-    //         { what: "turn", options: { dir: "r", deg: 15 }, default: null },   // "turn 15 degrees"
-    //         { what: "say", options: {}, default: "Hello!", timed: true, time: 2 } // "say Hello! for 2 seconds"
-    //       ]
-    //     },
-    //     {
-    //       position: { x: 300, y: 200 },
-    //       block: [
-    //         { what: "sprite", options: {}, default: null }, // "when sprite clicked"
-    //         { 
-    //           what: "repeat", 
-    //           options: {}, 
-    //           times: 5, 
-    //           actionData: [
-    //             { what: "move", options: { dir: "r", units: 20 }, default: null }
-    //           ]
-    //         }
-    //       ]
-    //     }
-    //   ]
-    const [combinations, setCombinations] = useState([]);
-    const [combinationPinned, setCombinationPinned] = useState(null);
-
-    // replay section related
-    const [replayList, setReplayList] = useState([]);
-    const [replayId, setReplayId] = useState(0);
-
-    useEffect(() => {
-        if(spriteClicked || flagClicked) {
-            let combinationsWithWhen = combinations.filter(combo => {
-                if(combo.block[0].what == (flagClicked ? 'flag' : 'sprite'))
-                    return true
-                return false
-            })
-            if(combinationsWithWhen.length > 0) {
-                let combinedBlock = []
-                let maxSizeBlock = 0
-                combinationsWithWhen.forEach(combo => {
-                    maxSizeBlock = Math.max(maxSizeBlock, combo.block.length)
-                })
-
-                for(let i = 1; i < maxSizeBlock; i++)
-                    for(let j = 0; j < combinationsWithWhen.length; j++)
-                        if(i < combinationsWithWhen[j].block.length)
-                            combinedBlock.push(combinationsWithWhen[j].block[i])
-                
-                setReplayList(list => [ ...list, combinedBlock ])
-                runByBlockClick(combinedBlock, false)
+    /**
+     * Flattens all blocks (except the first event block) from all combinationsWithWhen into a single array.
+     * Used to run all relevant blocks in sequence.
+     */
+    const combinedBlock = useMemo(() => {
+        if (combinationsWithWhen.length === 0) return [];
+        let combined = [];
+        let maxSizeBlock = 0;
+        combinationsWithWhen.forEach(combo => {
+            maxSizeBlock = Math.max(maxSizeBlock, combo.block.length);
+        });
+        for (let i = 1; i < maxSizeBlock; i++) {
+            for (let j = 0; j < combinationsWithWhen.length; j++) {
+                if (i < combinationsWithWhen[j].block.length)
+                    combined.push(combinationsWithWhen[j].block[i]);
             }
         }
-    }, [spriteClicked, flagClicked])
+        return combined;
+    }, [combinationsWithWhen]);
 
-    // methods for editor states like Run, Section change
+    // --- Effects ---
+    /**
+     * When the sprite or flag is clicked, run all relevant blocks and add to the replay list.
+     */
+    useEffect(() => {
+        if (spriteClicked || flagClicked) {
+            if (combinationsWithWhen.length > 0) {
+                setReplayList(list => [...list, combinedBlock]);
+                runByBlockClick(combinedBlock, false);
+            }
+        }
+    }, [spriteClicked, flagClicked, combinationsWithWhen, combinedBlock]);
+
+    // --- Callbacks and Handlers ---
+    /**
+     * Set the 'run' flag in sessionStorage to true.
+     */
     const triggerRun = () => {
         sessionStorage.setItem('run', true)
     }
+    /**
+     * Stop the run, reset sprite/flag click states.
+     */
     const stopRun = () => {
         sessionStorage.setItem('run', false)
         if(spriteClicked)
@@ -119,179 +100,230 @@ const Editor = () => {
         if(flagClicked)
             setFlagClicked(false)
     }
-
+    /**
+     * Change the current editor section (0: Code, 1: Costume, 2: Replay)
+     * @param {number} sec
+     */
     const changeSection = sec => { setSection(sec) }
-
-    // costume related methods, update list, change sprite
+    /**
+     * Add a new costume to the costume list.
+     * @param {string} newCostume - Image URL or data for the new costume
+     */
     const addCostume = newCostume => {
         setCostumes(costumes => [ ...costumes, () => (
             <img src={newCostume} alt="newCostume" />
         ) ])
     }
-
+    /**
+     * Change the currently used costume by index.
+     * @param {number} to
+     */
     const changeCostume = to => {
         if(to < costumes.length)
             setInUse(to)
     }
-
-    // methods related to sprite
-    const updateSpritePos = (to, checkRun) => {
-        if(!checkRun || JSON.parse(sessionStorage.getItem('run'))) {
-            spriteAt = { ...spriteAt,
-                x: to.x,
-                y: to.y,
-                deg: to.deg
-            }
+    /**
+     * Update the sprite's position and direction.
+     * @param {{x:number, y:number, deg:number}} to
+     * @param {boolean} checkRun - Only update if running, unless checkRun is false
+     */
+    const updateSpritePos = useCallback((to, checkRun) => {
+        if (!checkRun || JSON.parse(sessionStorage.getItem('run'))) {
+            setSpriteAt(prev => ({ ...prev, x: to.x, y: to.y, deg: to.deg }));
         }
-
-        setUpdateCount(updateCount => ((updateCount + 1) % 100))
-    }
-
+    }, []);
+    /**
+     * Handler for when the sprite is clicked (starts run mode).
+     */
     const clickTheSprite = () => {
         triggerRun()
         setSpriteClicked(true)
     }
-
+    /**
+     * Pin or unpin the sprite for editing.
+     * @param {boolean} should
+     */
     const pinTheSprite = should => { setSpritePinned(should) }
-
+    /**
+     * Set the sprite's speech/thought bubble.
+     * @param {object} speak
+     */
     const makeSpriteSpeak = speak => {
         setSpeak(said => (speak && said ? { ...said,
             act: speak.act,
             speakWhat: speak.speakWhat
         } : speak))
     }
-
-    const resizeSprite = size => {
-        spriteSize = size
-        setUpdateCount(updateCount => ((updateCount + 1) % 100))
-    }
-
-    // block methods, that is being dragged
+    /**
+     * Resize the sprite.
+     * @param {number} size
+     */
+    const resizeSprite = useCallback((size) => {
+        setSpriteSize(size);
+    }, []);
+    /**
+     * Set the currently picked/dragged block.
+     * @param {object|null} block
+     */
     const pickBlock = block => { setBlock(block) }
-
+    /**
+     * Initialize the position of the dragged block.
+     * @param {number} xPos
+     * @param {number} yPos
+     */
     const initializeBlockPos = (xPos, yPos) => { setBlockAt({ x: xPos, y: yPos }) }
-
+    /**
+     * Handler for moving a block during drag.
+     * @param {MouseEvent} event
+     */
     const handleBlockMove = event => {
         if(block)
             setBlockAt({ x: event.clientX, y: event.clientY })
     }
-
+    /**
+     * Handler for releasing a block outside a drop area.
+     * @param {MouseEvent} event
+     */
     const handleBlockReleaseOutsideDrop = event => {
         pickBlock(null)
         setBlockAt({ x: 0, y: 0 })
-
         if(combinationPinned != null)
             pinTheCombination(null)
     }
-
+    /**
+     * Add a new combination (script) to the workspace.
+     * @param {object} combination
+     */
     const createCombination = combination => {
         setCombinations(combinations => [ ...combinations, combination ])
     }
-
-    const pinTheCombination = combination => {
-        setCombinationPinned(combination)
-        
-        if(combination) {
-            // set the block, also update the combinations
-            let pinnedComboBlock = JSON.parse(JSON.stringify(combinations[combination.combId]))
-            pickBlock(pinnedBlockExtractor(pinnedComboBlock, combination))
-
-            let newCombinations = JSON.parse(JSON.stringify(combinations))
-            setCombinations(pinCombinationsUpdator(newCombinations, combination))
+    /**
+     * Pin a combination for editing, and update the block state accordingly.
+     * @param {object|null} combination
+     */
+    const pinTheCombination = useCallback((combination) => {
+        setCombinationPinned(combination);
+        if (combination) {
+            pickBlock(pinnedBlockExtractor(combinations[combination.combId], combination));
+            setCombinations(pinCombinationsUpdator(combinations, combination));
         }
-    }
-
-    const releasePinOnCombination = combo => {
-        // use block and combo to add block in correct combo
-        if(!block || ['flag', 'sprite'].includes(block[0].what))
-            return
-        
-        let updatedComboList = JSON.parse(JSON.stringify(combinations))
-        
-        setCombinations(updateCombinationHelper(updatedComboList, combo, block))
-        handleBlockReleaseOutsideDrop()
-    }
-
-    // replay section related methods
+    }, [combinations]);
+    /**
+     * Release the pin on a combination and update it with the current block.
+     * @param {object} combo
+     */
+    const releasePinOnCombination = useCallback((combo) => {
+        if (!block || ['flag', 'sprite'].includes(block[0].what))
+            return;
+        setCombinations(updateCombinationHelper(combinations, combo, block));
+        handleBlockReleaseOutsideDrop();
+    }, [block, combinations]);
+    /**
+     * Set the current replay index.
+     * @param {number} id
+     */
     const updateReplayId = id => { setReplayId(id) }
-
-    // action methods - motion, looks, control, events
-    const spriteMotionTrigger = (func, checkRun) => {
-        let spritePos = null
-
-        if(func.what == 'move')
-            spritePos = moveTrigger(spriteAt, func.options.dir, func.options.units)
-        else if(func.what == 'turn')
-            spritePos = turnTrigger(spriteAt, func.options)
+    /**
+     * Triggers sprite motion (move, turn, goto) based on the block's function.
+     * @param {object} func
+     * @param {boolean} checkRun
+     */
+    const spriteMotionTrigger = useCallback((func, checkRun) => {
+        let spritePos = null;
+        if (func.what === 'move')
+            spritePos = moveTrigger(spriteAt, func.options.dir, func.options.units);
+        else if (func.what === 'turn')
+            spritePos = turnTrigger(spriteAt, func.options);
         else
-            spritePos = gotoTrigger(spriteAt, func.options)
-        
-        updateSpritePos(spritePos, checkRun)
-    }
-
-    const spriteLooksTrigger = async (func) => {
-        if(['say', 'think'].includes(func.what)) {
-            makeSpriteSpeak({ act: func.what, speakWhat: func.default })
-            if(func.timed)
-                makeSpriteSpeak(await speakTrigger(func.time))
+            spritePos = gotoTrigger(spriteAt, func.options);
+        updateSpritePos(spritePos, checkRun);
+    }, [spriteAt, updateSpritePos]);
+    /**
+     * Triggers sprite look changes (say, think, resize) based on the block's function.
+     * @param {object} func
+     */
+    const spriteLooksTrigger = useCallback(async (func) => {
+        if (['say', 'think'].includes(func.what)) {
+            makeSpriteSpeak({ act: func.what, speakWhat: func.default });
+            if (func.timed)
+                makeSpriteSpeak(await speakTrigger(func.time));
+        } else {
+            resizeSprite(resizeTrigger(spriteSize, func.definite, func.to));
         }
-        else if(func.what == 'costume')
-            changeCostume(costumeTrigger(func.next, func.which, costumes.length, inUse))
-        else
-            resizeSprite(resizeTrigger(spriteSize, func.definite, func.to))
-    }
-
-    const getNextInRunLoop = i => {
+    }, [resizeSprite, spriteSize]);
+    /**
+     * Returns a promise that resolves to the next index in a run loop after a short delay.
+     * @param {number} i
+     * @returns {Promise<number>}
+     */
+    const getNextInRunLoop = useCallback(i => {
         return new Promise(resolve => {
-            setTimeout(() => { resolve(i + 1) }, 50)
-        })
-    }
-
-    const spriteControlTrigger = async (func) => {
-        if(func.what == 'wait')
-            await waitForSprite(func.for)
-        else if(func.what == 'forever')
-            while(JSON.parse(sessionStorage.getItem('run')))
-                await runByBlockClick(func.actionData, true)
+            setTimeout(() => { resolve(i + 1); }, 50);
+        });
+    }, []);
+    /**
+     * Triggers control blocks (wait, repeat, forever) for the sprite.
+     * @param {object} func
+     */
+    const spriteControlTrigger = useCallback(async (func) => {
+        if (func.what === 'wait')
+            await waitForSprite(func.for);
+        else if (func.what === 'forever')
+            while (JSON.parse(sessionStorage.getItem('run')))
+                await runByBlockClick(func.actionData, true);
         else {
-            for(let i = 0; i < func.times; ) {
-                await runByBlockClick(func.actionData, true)
-                i = await getNextInRunLoop(i)
+            for (let i = 0; i < func.times;) {
+                await runByBlockClick(func.actionData, true);
+                i = await getNextInRunLoop(i);
             }
         }
-    }
-
-    const checkWhatAndRun = async (func, checkRun) => {
-        if(categories[0].subTypes.includes(func.what)) // motion
-            spriteMotionTrigger(func, checkRun)
-        else if(categories[1].subTypes.includes(func.what)) // looks
-            await spriteLooksTrigger(func)
-        else if(categories[3].subTypes.includes(func.what)) // control
-            await spriteControlTrigger(func)
-    }
-
-    const runByBlockClick = async (block, repeat) => {
-        if(!repeat)
-            triggerRun()
-        if(repeat && !JSON.parse(sessionStorage.getItem('run')))
-            return
-        
-        let func = null
-        let checkRun = repeat
-        
-        for(let i = 0; i < block.length; ) {
-            if(i == 5)
-                checkRun = true
-
-            func = block[i]
-            await checkWhatAndRun(func, checkRun)
-
-            i = await getNextInRunLoop(i)
+    }, [getNextInRunLoop]);
+    /**
+     * Determines the type of block and triggers the appropriate handler.
+     * @param {object} func
+     * @param {boolean} checkRun
+     */
+    const checkWhatAndRun = useCallback(async (func, checkRun) => {
+        if (categories[0].subTypes.includes(func.what)) // motion
+            spriteMotionTrigger(func, checkRun);
+        else if (categories[1].subTypes.includes(func.what)) // looks
+            await spriteLooksTrigger(func);
+        else if (categories[3].subTypes.includes(func.what)) // control
+            await spriteControlTrigger(func);
+    }, [spriteMotionTrigger, spriteLooksTrigger, spriteControlTrigger]);
+    /**
+     * Runs a sequence of blocks, optionally in repeat mode.
+     * @param {Array} block - Array of block objects to run
+     * @param {boolean} repeat - Whether this is a repeat/looped run
+     */
+    const runByBlockClick = useCallback(async (block, repeat) => {
+        if (!repeat)
+            triggerRun();
+        if (repeat && !JSON.parse(sessionStorage.getItem('run')))
+            return;
+        let func = null;
+        let checkRun = repeat;
+        for (let i = 0; i < block.length;) {
+            if (i === 5)
+                checkRun = true;
+            func = block[i];
+            await checkWhatAndRun(func, checkRun);
+            i = await getNextInRunLoop(i);
         }
+        if (!repeat)
+            stopRun();
+    }, [checkWhatAndRun, getNextInRunLoop]);
 
-        if(!repeat)
-            stopRun()
-    }
+    // --- Memoize context value ---
+    /**
+     * Context value for sprite actions, provided to child components.
+     */
+    const spriteActionsContextValue = useMemo(() => ({
+        spriteMotionTrigger: (func) => spriteMotionTrigger(func),
+        spriteLooksTrigger: (func) => spriteLooksTrigger(func),
+        pickBlock: (block) => pickBlock(block),
+        initializeBlockPos: (xPos, yPos) => initializeBlockPos(xPos, yPos)
+    }), [spriteMotionTrigger, spriteLooksTrigger]);
 
     return (
         <div className="bg-blue-100 font-sans h-screen">
@@ -344,12 +376,7 @@ const Editor = () => {
             <div className="playground flex flex-row" onMouseMove={event => handleBlockMove(event)}
                 onMouseUp={event => handleBlockReleaseOutsideDrop(event)}>
                 <div className="flex-1 overflow-hidden flex flex-row bg-white border-t border-r border-gray-200 rounded-r-xl mr-1">
-                    <SpriteActionsContext.Provider value={{
-                        spriteMotionTrigger: (func) => spriteMotionTrigger(func),
-                        spriteLooksTrigger: (func) => spriteLooksTrigger(func),
-                        pickBlock: (block) => pickBlock(block),
-                        initializeBlockPos: (xPos, yPos) => initializeBlockPos(xPos, yPos)
-                    }}>
+                    <SpriteActionsContext.Provider value={spriteActionsContextValue}>
                         <Sidebar />
                         <MidArea block={block} combinations={combinations}
                             createCombination={combination => createCombination(combination)}

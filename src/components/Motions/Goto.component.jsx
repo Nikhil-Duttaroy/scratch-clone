@@ -4,20 +4,32 @@ import { useContext } from "react";
 import { CombinationContext } from "../../Context/Combination.context";
 import { useRef } from "react";
 
+/**
+ * Goto block component for sprite motion.
+ * @param {Object} props
+ * @param {number} props.x - X coordinate to go to
+ * @param {number} props.y - Y coordinate to go to
+ * @param {boolean} [props.random] - If true, go to random position
+ * @param {string} props.color - Color for the block UI
+ * @param {number} [props.index] - Index in combination (if used in combo)
+ * @returns {JSX.Element}
+ */
 const Goto = props => {
     const [go, setGo] = useState({
         x: props.x,
         y: props.y
     });
 
+    // Update the go state for x or y
     const goto = (where, by) => { setGo({ ...go, [where]: by }) }
-const { spriteMotionTrigger, pickBlock, initializeBlockPos } = useContext(SpriteActionsContext);
+    const { spriteMotionTrigger, pickBlock, initializeBlockPos } = useContext(SpriteActionsContext);
     const { isCombo, updateComboPin } = useContext(CombinationContext);
-    const gotoTimerRef = useRef(null);
+    const gotoTimerRef = useRef(null); // Timer for drag/hold detection
     return(
         <button className={`bg-${props.color} flex flex-row text-white
             px-4 py-2 my-${isCombo ? 0 : 3} cursor-pointer rounded-md font-medium items-center whitespace-nowrap functionButton`}
            onClick={() => {
+                // Trigger sprite goto if not in combination edit mode
                 if(!isCombo)
                     spriteMotionTrigger({
                         what: 'goto',
@@ -25,6 +37,7 @@ const { spriteMotionTrigger, pickBlock, initializeBlockPos } = useContext(Sprite
                     })
             }}
             onMouseDown={event => {
+                // Start drag after 300ms hold
                 gotoTimerRef.current = setTimeout(() => {
                     initializeBlockPos(event.clientX, event.clientY)
 

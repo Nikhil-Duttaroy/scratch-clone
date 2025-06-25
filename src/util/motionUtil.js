@@ -1,5 +1,7 @@
 export const moveTrigger = (spriteAt, dir, units) => {
-    let spritePos = JSON.parse(JSON.stringify(spriteAt))
+    let spritePos = typeof structuredClone === 'function'
+        ? structuredClone(spriteAt)
+        : { ...spriteAt };
     let initDeg = spritePos.deg
     
     if(dir == 'r' || (dir == 'm' && spritePos.deg == 0))

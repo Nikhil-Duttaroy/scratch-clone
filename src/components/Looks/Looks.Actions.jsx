@@ -1,9 +1,16 @@
-
 import CostumeFunction from "./Costume.component";
 import Resize from "./Resize.component";
 import Say from "./Say.component";
 
+/**
+ * Renders the appropriate look block (Costume, Resize, Say) based on the 'what' property of each lookAbility item.
+ * @param {Object} props
+ * @param {Array} props.lookAbility - Array of look block objects to render
+ * @param {string} props.color - Color for the block UI
+ * @returns {JSX.Element[]}
+ */
 const LookActions = props => {
+    // Map each lookAbility item to its corresponding component
     const whatBasedLookRender = props.lookAbility.map((look, i) => {
         return look.what == 'costume' ?
                 <CostumeFunction key={look.what + i} next={look.next} which={look.which}

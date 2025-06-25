@@ -4,17 +4,28 @@ import { SpriteActionsContext } from "../../Context/SpriteActions.context";
 import { useContext } from "react";
 import { CombinationContext } from "../../Context/Combination.context";
 import { useRef } from "react";
+
+/**
+ * Rotate (turn/point) block component for sprite motion.
+ * @param {Object} props
+ * @param {string} props.dir - Direction to turn ('r', 'l')
+ * @param {number} props.deg - Degrees to turn
+ * @param {boolean} [props.reset] - If true, points in direction
+ * @param {string} props.color - Color for the block UI
+ * @param {number} [props.index] - Index in combination (if used in combo)
+ * @returns {JSX.Element}
+ */
 const Rotate = props => {
-    const [turnBy, setTurnBy] = useState(props.deg);
+    const [turnBy, setTurnBy] = useState(props.deg); // Current value for degrees to turn
     const updateMoveBy = by => { setTurnBy(by) }
     const { spriteMotionTrigger, pickBlock, initializeBlockPos } = useContext(SpriteActionsContext);
     const { isCombo, updateComboPin } = useContext(CombinationContext);
-
-    const rotateTimerRef = useRef(null);
+    const rotateTimerRef = useRef(null); // Timer for drag/hold detection
     return(
         <button className={`bg-${props.color} flex flex-row text-white
             px-4 py-2 my-${isCombo ? 0 : 4} cursor-pointer rounded-md font-medium items-center functionButton`}
             onClick={() => {
+                // Trigger sprite turn if not in combination edit mode
                 if(!isCombo)
                     spriteMotionTrigger({
                         what: 'turn',
@@ -22,6 +33,7 @@ const Rotate = props => {
                     })
             }}
             onMouseDown={event => {
+                // Start drag after 300ms hold
                 rotateTimerRef.current = setTimeout(() => {
                     initializeBlockPos(event.clientX, event.clientY)
 
