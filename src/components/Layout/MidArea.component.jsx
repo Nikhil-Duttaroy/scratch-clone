@@ -130,6 +130,22 @@ const MidArea = (props) => {
       }}
       onMouseUp={(event) => handleItemDrop(event)}
     >
+      <div className="absolute top-2 right-2 z-10">
+        <button 
+          className={`px-3 py-1.5 text-sm font-semibold rounded-md shadow-sm
+            ${props.combinations.length > 0 
+              ? 'bg-green-500 text-white hover:bg-green-600' 
+              : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+          disabled={props.combinations.length === 0}
+          onClick={() => {
+            if (props.combinations.length > 0) {
+              props.runByBlockClick(props.combinations[0].block, false, true);
+            }
+          }}
+        >
+          Play All
+        </button>
+      </div>
       <CombinationContext.Provider
         value={{
           isCombo: true,

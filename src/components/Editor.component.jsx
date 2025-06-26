@@ -383,7 +383,73 @@ const resizeSprite = useCallback((size) => {
      * @param {Array} block - Array of block objects to run
      * @param {boolean} repeat - Whether this is a repeat/looped run
      */
-    const runByBlockClick = useCallback(async (block, repeat) => {
+    const runByBlockClick = useCallback(async (block, repeat, all = false) => {
+        if (all) {
+            const runPromises = sprites.map((sprite, index) => {
+                const singleSpriteBlockRun = async () => {
+                    let executionState = {
+                        position: sprite.position,
+                        size: sprite.size
+                    };
+    
+                    for (let i = 0; i < block.length;) {
+                        const func = block[i];
+                        
+                        // Motion
+                        if (categories[0].subTypes.includes(func.what)) {
+                            let newPos;
+                            if (func.what === 'move')
+                                newPos = moveTrigger(executionState.position, func.options.dir, func.options.units);
+                            else if (func.what === 'turn')
+                                newPos = turnTrigger(executionState.position, func.options);
+                            else
+                                newPos = gotoTrigger(executionState.position, func.options);
+                            executionState.position = newPos;
+                        } 
+                        // Looks
+                        else if (categories[1].subTypes.includes(func.what)) {
+                            if (['say', 'think'].includes(func.what)) {
+                                makeSpriteSpeak({ act: func.what, speakWhat: func.default }, index);
+                                if (func.timed) {
+                                    setTimeout(() => makeSpriteSpeak(null, index), func.time * 1000);
+                                }
+                            } else {
+                                const newSize = resizeTrigger(executionState.size, func.definite, func.to);
+                                executionState.size = newSize;
+                            }
+                        }
+                        // Control
+                        else if (categories[3].subTypes.includes(func.what)) {
+                            if (func.what === 'wait') {
+                                await new Promise(resolve => setTimeout(resolve, func.for * 1000));
+                            }
+                        }
+                        
+                        i = await getNextInRunLoop(i);
+                    }
+    
+                    return { index, finalState: executionState };
+                };
+                return singleSpriteBlockRun();
+            });
+    
+            triggerRun();
+            const results = await Promise.all(runPromises);
+            setSprites(prevSprites => {
+                const newSprites = [...prevSprites];
+                results.forEach(({ index, finalState }) => {
+                    newSprites[index] = {
+                        ...newSprites[index],
+                        position: finalState.position,
+                        size: finalState.size,
+                    };
+                });
+                return newSprites;
+            });
+            stopRun();
+            return;
+        }
+
         let executionState = null;
         
         if (!repeat) {
@@ -498,9 +564,9 @@ const resizeSprite = useCallback((size) => {
                             pinTheCombination={combination => pinTheCombination(combination)}
                             pickBlock={block => pickBlock(block)}
                             releasePinOnCombination={combo => releasePinOnCombination(combo)}
-                            runByBlockClick={(block, repeat) => {
-                                setRunningSprite(activeSprite); // Set running sprite when combo is clicked
-                                runByBlockClick(block, repeat);
+                            runByBlockClick={(block, repeat, all) => {
+                                setRunningSprite(activeSprite); 
+                                runByBlockClick(block, repeat, all);
                             }} />
                     </SpriteActionsContext.Provider>
                 </div>
