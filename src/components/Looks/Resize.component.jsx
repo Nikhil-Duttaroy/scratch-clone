@@ -21,7 +21,7 @@ const Resize = props => {
 
     return(
         <button className={`bg-${props.color} flex flex-row text-white
-            px-4 py-2 my-${isCombo ? 0 : 3} cursor-pointer rounded-md font-medium items-center whitespace-nowrap functionButton`}
+            px-4 py-2 my-${isCombo ? 0 : 3} cursor-pointer rounded-md font-medium items-center whitespace-nowrap `}
             onClick={() => {
                 // Trigger resize if not in combination edit mode
                 if(!isCombo)
@@ -52,7 +52,7 @@ const Resize = props => {
             }}>
             <span>{props.definite ? 'set size to' : 'change size by'}</span>
             <input type="number" className="text-black text-center mx-2 functionInput"
-                value={sizeUp} onChange={e => resizeBy(e.target.value)}
+                value={sizeUp} onChange={e => resizeBy(Number(event.target.value))}
                 onClick={e => e.stopPropagation()}
                 min={0}/>
             {props.definite && <span>{'%'}</span>}

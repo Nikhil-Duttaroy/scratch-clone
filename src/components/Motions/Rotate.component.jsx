@@ -23,7 +23,7 @@ const Rotate = props => {
     const rotateTimerRef = useRef(null); // Timer for drag/hold detection
     return(
         <button className={`bg-${props.color} flex flex-row text-white
-            px-4 py-2 my-${isCombo ? 0 : 4} cursor-pointer rounded-md font-medium items-center functionButton`}
+            px-4 py-2 my-${isCombo ? 0 : 4} cursor-pointer rounded-md font-medium items-center `}
             onClick={() => {
                 // Trigger sprite turn if not in combination edit mode
                 if(!isCombo)
@@ -61,7 +61,7 @@ const Rotate = props => {
                 <span>turn</span>
                 <Icon name={props.dir == 'r' ? 'redo' : 'undo'} className="mx-2" />
                 <input type="number" className="text-black text-center mx-2 functionInput"
-                    value={turnBy} onChange={event => updateMoveBy(event.target.value)}
+                    value={turnBy} onChange={event => updateMoveBy(Number(event.target.value))}
                     onClick={event => event.stopPropagation()} 
                     min={0}/>
                 <span>degrees</span>

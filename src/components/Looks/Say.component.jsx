@@ -35,7 +35,7 @@ const Say = (props) => {
   return (
     <button
       className={`bg-${props.color} flex flex-row text-white
-            px-4 py-2 my-${isCombo ? 0 : 3} cursor-pointer rounded-md font-medium items-center functionButton`}
+            px-4 py-2 my-${isCombo ? 0 : 3} cursor-pointer rounded-md font-medium items-center `}
       onClick={() => {
         // Trigger say/think if not in combination edit mode
         if(!isCombo)
@@ -81,7 +81,7 @@ const Say = (props) => {
             type="number"
             className="text-black text-center mx-2 functionInput"
             value={sayFor}
-            onChange={(e) => updateSayTime(e.target.value)}
+            onChange={(e) => updateSayTime(Number(event.target.value))}
             onClick={(e) => e.stopPropagation()}
             min={0}
           />

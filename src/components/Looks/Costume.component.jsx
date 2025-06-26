@@ -24,7 +24,7 @@ const CostumeFunction = props => {
     return(
         <button className={`bg-${props.color} w-min text-white
             px-3 my-${isCombo ? 0 : 3} cursor-pointer rounded-md font-medium
-            flex flex-row items-center whitespace-nowrap functionButton`}
+            flex flex-row items-center whitespace-nowrap `}
              onClick={() => {
                 // Trigger costume change if not in combination edit mode
                 if(!isCombo)

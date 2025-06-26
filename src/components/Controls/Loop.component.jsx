@@ -25,7 +25,7 @@ const Loop = props => {
     return(
         <button className={`bg-${props.color} w-min text-white
              py-2 my-${isCombo ? 0 : 3} cursor-pointer rounded-md font-mediumAdd commentMore actions
-            flex flex-col whitespace-nowrap loopButton functionButton`}
+            flex flex-col whitespace-nowrap loopButton `}
             onMouseDown={event => {
                 // Start drag after 300ms hold
                 loopTimerRef.current = setTimeout(() => {
@@ -49,7 +49,7 @@ const Loop = props => {
             <div className="flex flex-row items-center px-3">
                 <span>repeat</span>
                 <input type="number" className="text-black text-center mx-2 functionInput"
-                    value={repeatTime} onChange={event => modifyRepeatTime(event.target.value)}
+                    value={repeatTime} onChange={event => modifyRepeatTime(Number(event.target.value))}
                     onClick={e => e.stopPropagation()}
                     min={0}/>
             </div> :

@@ -23,7 +23,7 @@ const Wait = props => {
     return(
         <button className={`bg-${props.color} w-min text-white
            px-4 py-2 my-${isCombo ? 0 : 3} cursor-pointer rounded-md font-medium
-            flex flex-row items-center whitespace-nowrap functionButton`}
+            flex flex-row items-center whitespace-nowrap `}
             onMouseDown={event => {
                 // Start drag after 300ms hold
                 waitTimerRef.current = setTimeout(() => {
@@ -45,7 +45,7 @@ const Wait = props => {
             }}>
             <span>wait</span>
             <input type="number" className="text-black text-center mx-2 functionInput"
-                value={wait} onChange={event => changeWait(event.target.value)}
+                value={wait} onChange={event => changeWait(Number(event.target.value))}
                 onClick={e => e.stopPropagation()}
                 min={0}/>
             <span>seconds</span>

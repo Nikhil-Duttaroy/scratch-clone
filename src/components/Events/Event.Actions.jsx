@@ -37,7 +37,7 @@ export const WhenFlag = ({ color, index }) => {
     return(
         <button className={`bg-${color} flex flex-row text-white
             px-4 py-2 my-${isCombo ? 0 : 3} cursor-pointer rounded-md font-medium
-             items-center functionButton`}
+             items-center `}
             onMouseDown={event => {
                 // Start drag after 300ms hold
                 flagTimerRef.current = setTimeout(() => {
@@ -74,7 +74,7 @@ export const WhenSprite = ({ color, index }) => {
     return(
         <button className={`bg-${color} flex flex-row text-white
             px-4 py-2 my-${isCombo ? 0 : 3} cursor-pointer rounded-md font-medium
-            items-center functionButton `}
+            items-center  `}
             onMouseDown={event => {
                 // Start drag after 300ms hold
                 spriteTimerRef.current = setTimeout(() => {

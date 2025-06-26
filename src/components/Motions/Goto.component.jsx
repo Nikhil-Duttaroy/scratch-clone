@@ -27,7 +27,7 @@ const Goto = props => {
     const gotoTimerRef = useRef(null); // Timer for drag/hold detection
     return(
         <button className={`bg-${props.color} flex flex-row text-white
-            px-4 py-2 my-${isCombo ? 0 : 3} cursor-pointer rounded-md font-medium items-center whitespace-nowrap functionButton`}
+            px-4 py-2 my-${isCombo ? 0 : 3} cursor-pointer rounded-md font-medium items-center whitespace-nowrap `}
            onClick={() => {
                 // Trigger sprite goto if not in combination edit mode
                 if(!isCombo)
@@ -60,12 +60,12 @@ const Goto = props => {
             <>
                 <span className="ml-1">x</span>
                 <input type="number" className="text-black text-center mx-2 functionInput"
-                    value={go.x} onChange={event => goto('x', event.target.value)}
+                    value={go.x} onChange={event => goto('x', Number(event.target.value))}
                     onClick={e =>e.stopPropagation()}
                     />
                 <span>y</span>
                 <input type="number" className="text-black text-center mx-2 functionInput"
-                    value={go.y} onChange={event => goto('y', event.target.value)}
+                    value={go.y} onChange={event => goto('y', Number(event.target.value))}
                     onClick={e =>e.stopPropagation()}
                     
                     />
