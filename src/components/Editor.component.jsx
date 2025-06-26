@@ -313,6 +313,7 @@ const resizeSprite = useCallback((size) => {
         if (executionStateRef.current) {
             executionStateRef.current = { ...executionStateRef.current, position: spritePos };
             setCurrentExecutionState(prev => ({ ...prev, position: spritePos }));
+            updateSpritePos(spritePos, false, runningSprite);
         } else {
             // If no execution state (single block click), update sprite directly
             updateSpritePos(spritePos, checkRun, runningSprite);
@@ -333,7 +334,9 @@ const resizeSprite = useCallback((size) => {
             
             // During execution, only update execution state
             if (currentExecutionState) {
+                executionStateRef.current = { ...executionStateRef.current, size: newSize };
                 setCurrentExecutionState(prev => ({ ...prev, size: newSize }));
+                resizeSprite(newSize);
             } else {
                 // If no execution state (single block click), update sprite directly
                 resizeSprite(newSize);

@@ -42,7 +42,7 @@ const Sidebar = (props) => {
   const categoryList = categories.map((category) => (
     <div
       key={category.cid}
-      className={`w-full px-2 py-1 cursor-pointer ${
+      className={`w-full px- py-1 cursor-pointer ${
         activeCid === category.cid ? "bg-blue-50" : ""
       }`}
       onClick={() => updateActiveCid(category.cid)}
@@ -62,7 +62,7 @@ const Sidebar = (props) => {
 
   return (
     <div className="w-2/5 h-full flex flex-row items-start border-r border-gray-200">
-      <div className="w-1/6 h-full flex flex-col border-r border-gray-200">
+      <div className="w-min px-2 h-full flex flex-col border-r border-gray-200">
         {categoryList}
       </div>
       <div
