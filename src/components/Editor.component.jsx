@@ -187,6 +187,9 @@ const updateSpritePos = useCallback((to, checkRun, spriteIndex = activeSprite) =
         setSprites(sprites => sprites.map((sprite, index) => 
             index === spriteIndex ? { ...sprite, position: to } : sprite
         ));
+        if (executionStateRef.current) {
+            executionStateRef.current.position = to;
+        }
     }
 }, [activeSprite]);
 /**
@@ -231,6 +234,9 @@ const resizeSprite = useCallback((size) => {
     setSprites(sprites => sprites.map((sprite, index) => 
         index === runningSprite ? { ...sprite, size: size } : sprite
     ));
+    if (executionStateRef.current) {
+        executionStateRef.current.size = size;
+    }
 }, [runningSprite]);
     /**
      * Set the currently picked/dragged block.
@@ -334,9 +340,11 @@ const resizeSprite = useCallback((size) => {
             
             // During execution, only update execution state
             if (currentExecutionState) {
-                executionStateRef.current = { ...executionStateRef.current, size: newSize };
-                setCurrentExecutionState(prev => ({ ...prev, size: newSize }));
-                resizeSprite(newSize);
+                if (executionStateRef.current) {
+                    executionStateRef.current = { ...executionStateRef.current, size: newSize };
+                    setCurrentExecutionState(prev => ({ ...prev, size: newSize }));
+                    resizeSprite(newSize);
+                }
             } else {
                 // If no execution state (single block click), update sprite directly
                 resizeSprite(newSize);

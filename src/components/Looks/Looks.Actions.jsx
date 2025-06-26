@@ -1,4 +1,3 @@
-import CostumeFunction from "./Costume.component";
 import Resize from "./Resize.component";
 import Say from "./Say.component";
 
@@ -12,9 +11,7 @@ import Say from "./Say.component";
 const LookActions = props => {
     // Map each lookAbility item to its corresponding component
     const whatBasedLookRender = props.lookAbility.map((look, i) => {
-        return look.what == 'costume' ?
-                <CostumeFunction key={look.what + i} next={look.next} which={look.which}
-                    color={props.color} /> : (look.what == 'resize' ?
+        return (look.what == 'resize' ?
                 <Resize key={look.what + i} definite={look.definite} to={look.to}
                     by={look.by} color={props.color} /> :
                 <Say key={look.what + i} what={look.what} default={look.default} timed={look.timed}
