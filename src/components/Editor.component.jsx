@@ -92,6 +92,8 @@ const Editor = () => {
             if (combinationsWithWhen.length > 0) {
                 setReplayList(list => [...list, combinedBlock]);
                 runByBlockClick(combinedBlock, false);
+                flagClicked && setFlagClicked(false)
+                if (spriteClicked) setSprites(sprites => sprites.map(sprite => ({ ...sprite, clicked: false })));
             }
         }
     }, [spriteClicked, flagClicked, combinationsWithWhen, combinedBlock]);

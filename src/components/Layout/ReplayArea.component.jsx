@@ -5,7 +5,7 @@ import Icon from "../Icon.component";
 const ReplayArea = props => {
     const replayRenderer = props.replayList.map((block, i) => {
         return(
-            <div key={i} className={`w-1/3 overflow-hidden border-2 ${props.replayId == i ? 'border-blue-300' : ''}
+            <div key={i} className={`w-min h-min overflow-hidden border-2 ${props.replayId == i ? 'border-blue-300' : ''}
                 rounded-lg cursor-pointer`} onClick={() => props.updateReplayId(i)}>
                 <div>
                     <DragBlock block={block} />
