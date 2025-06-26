@@ -13,6 +13,7 @@ const MidArea = (props) => {
 
   const [comboPin, setComboPin] = useState(null);
   const [releasing, setReleasing] = useState(false);
+  const [hoveredComb, setHoveredComb] = useState(null);
 
   const updateComboPin = (pos, root, releasing) => {
     // releasing - false implies a loop action/function
@@ -68,6 +69,7 @@ const MidArea = (props) => {
       });
       props.pickBlock(null);
     }
+    setHoveredComb(null);
   };
   useEffect(() => {
     if (midAreaRef && midAreaRef.current) {
@@ -101,11 +103,16 @@ const MidArea = (props) => {
       // clear block and pinned item & update combinations
       <div
         key={"#" + i}
-        className="absolute rounded-md"
+        className={`absolute rounded-md transition-shadow duration-200 
+          ${(hoveredComb === i && props.block) ? 'shadow-lg ring-4 ring-yellow-400' : ''}`}
         style={{
           top: combination.position.y,
           left: combination.position.x,
         }}
+        onMouseEnter={() => {
+            if(props.block) setHoveredComb(i);
+        }}
+        onMouseLeave={() => setHoveredComb(null)}
         onMouseDown={() => {
           dragTimerRef.current = setTimeout(() => {
             updateComboPin(i, true);
@@ -115,6 +122,7 @@ const MidArea = (props) => {
           event.stopPropagation();
           clearTimeout(dragTimerRef.current);
           updateComboPin(i, true, true);
+          setHoveredComb(null);
         }}
         onClick={event => props.runByBlockClick(combination.block, false)}>
         <DragBlock block={combination.block} />
