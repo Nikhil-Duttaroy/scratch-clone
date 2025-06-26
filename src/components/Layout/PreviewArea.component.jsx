@@ -5,6 +5,8 @@ import Icon from "../Icon.component";
 const PreviewArea = (props) => {
   const areaRef = useRef(null);
 
+  const [showCostumeChoices, setShowCostumeChoices] = useState(false)
+
   const [bounds, setBounds] = useState({
     least: { x: 0, y: 0 },
     most: { x: 0, y: 0 },
@@ -57,14 +59,28 @@ const PreviewArea = (props) => {
             ))}
           </div>
         </div>
-        <div className="flex items-center space-x-1">
+        <div className="flex items-center space-x-1 relative">
           <button
             className="p-1 bg-green-500 text-white rounded hover:bg-green-600"
-            onClick={() => props.addSprite(0)}
+            onClick={() => setShowCostumeChoices(d => !d)}
             title="Add Sprite"
           >
             <Icon name="plus" size={12} />
           </button>
+          {showCostumeChoices && <div className="absolute bg-white p-2 rounded-md shadow-lg top-8 right-0 z-10
+            flex flex-row gap-x-2">
+              {props.costumes.map((Costume, i) => {
+                return <button key={i} className="w-12 h-12 flex justify-center items-center
+                  cursor-pointer hover:bg-gray-100 rounded-md" onClick={() => {
+                    props.addSprite(i)
+                    setShowCostumeChoices(false)
+                  }}>
+                  <div className="transform scale-50">
+                    <Costume />
+                  </div>
+                </button>
+              })}
+          </div>}
           {props.sprites.length > 1 && (
             <button
               className="p-1 bg-red-500 text-white rounded hover:bg-red-600"
