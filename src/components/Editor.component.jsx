@@ -1,4 +1,4 @@
-import { useState,useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import CatSprite from "./Sprites/catSprite.component.jsx";
 import PreviewArea from "./Layout/PreviewArea.component.jsx";
 import MidArea from "./Layout/MidArea.component.jsx";
@@ -26,18 +26,31 @@ const Editor = () => {
         CatSprite,
         DogSprite, // TODO: Remove duplicate if not needed
     ]);
-    const [inUse, setInUse] = useState(0); // Index of the currently used costume
-    const [spriteClicked, setSpriteClicked] = useState(false); // Whether the sprite was clicked
-    const [spritePinned, setSpritePinned] = useState(false); // Whether the sprite is pinned
-    const [speak, setSpeak] = useState(null); // Current speech/thought bubble state
+    const [sprites, setSprites] = useState([
+        {
+            id: 0,
+            costumeIndex: 0,
+            position: { x: 0, y: 0, deg: 0 },
+            size: 1,
+            speak: null,
+            pinned: false,
+            clicked: false
+        }
+    ]);
+    const [activeSprite, setActiveSprite] = useState(0); // Index of currently selected sprite
+    const [runningSprite, setRunningSprite] = useState(0); // Index of sprite currently running blocks
+    const [currentExecutionState, setCurrentExecutionState] = useState(null); // Current sprite state during execution
+    const executionStateRef = useRef(null); // Synchronous execution state reference
     const [block, setBlock] = useState(null); // Block currently being dragged or manipulated
     const [blockAt, setBlockAt] = useState({ x: 0, y: 0 }); // Position of the dragged block
     const [combinations, setCombinations] = useState([]); // All block combinations (scripts)
     const [combinationPinned, setCombinationPinned] = useState(null); // Currently pinned combination (for editing)
     const [replayList, setReplayList] = useState([]); // List of block runs for replay
     const [replayId, setReplayId] = useState(0); // Current replay index
-    const [spriteAt, setSpriteAt] = useState({ x: 0, y: 0, deg: 0 }); // Sprite's position and direction
-    const [spriteSize, setSpriteSize] = useState(1); // Sprite's size (scale)
+
+    // Legacy compatibility getters for active sprite
+    const spriteClicked = sprites[activeSprite]?.clicked || false;
+    const inUse = sprites[activeSprite]?.costumeIndex || 0;
 
     // --- Memoized Values ---
     /**
@@ -96,7 +109,7 @@ const Editor = () => {
     const stopRun = () => {
         sessionStorage.setItem('run', false)
         if(spriteClicked)
-            setSpriteClicked(false)
+            setSprites(sprites => sprites.map(sprite => ({ ...sprite, clicked: false })));
         if(flagClicked)
             setFlagClicked(false)
     }
@@ -120,47 +133,103 @@ const Editor = () => {
      */
     const changeCostume = to => {
         if(to < costumes.length)
-            setInUse(to)
+            setSprites(sprites => sprites.map((sprite, index) => 
+                index === activeSprite ? { ...sprite, costumeIndex: to } : sprite
+            ));
     }
     /**
-     * Update the sprite's position and direction.
-     * @param {{x:number, y:number, deg:number}} to
-     * @param {boolean} checkRun - Only update if running, unless checkRun is false
+     * Add a new sprite to the preview area.
+     * @param {number} costumeIndex - Index of costume to use for new sprite
      */
-    const updateSpritePos = useCallback((to, checkRun) => {
-        if (!checkRun || JSON.parse(sessionStorage.getItem('run'))) {
-            setSpriteAt(prev => ({ ...prev, x: to.x, y: to.y, deg: to.deg }));
+    const addSprite = (costumeIndex = 0) => {
+        const newSprite = {
+            id: Date.now(), // Use timestamp as unique ID
+            costumeIndex: costumeIndex,
+            position: { x: Math.random() * 100, y: Math.random() * 100, deg: 0 },
+            size: 1,
+            speak: null,
+            pinned: false,
+            clicked: false
+        };
+        setSprites(sprites => [...sprites, newSprite]);
+    }
+    /**
+     * Remove a sprite by index.
+     * @param {number} spriteIndex
+     */
+    const removeSprite = (spriteIndex) => {
+        if (sprites.length > 1) { // Keep at least one sprite
+            setSprites(sprites => sprites.filter((_, index) => index !== spriteIndex));
+            if (activeSprite >= sprites.length - 1) {
+                setActiveSprite(Math.max(0, sprites.length - 2));
+            }
         }
-    }, []);
-    /**
-     * Handler for when the sprite is clicked (starts run mode).
-     */
-    const clickTheSprite = () => {
-        triggerRun()
-        setSpriteClicked(true)
     }
     /**
-     * Pin or unpin the sprite for editing.
-     * @param {boolean} should
-     */
-    const pinTheSprite = should => { setSpritePinned(should) }
+ * Set the active sprite for editing.
+ * @param {number} spriteIndex
+ */
+const selectActiveSprite = (spriteIndex) => {
+    if (spriteIndex >= 0 && spriteIndex < sprites.length) {
+        setActiveSprite(spriteIndex);
+    }
+}
     /**
-     * Set the sprite's speech/thought bubble.
-     * @param {object} speak
-     */
-    const makeSpriteSpeak = speak => {
-        setSpeak(said => (speak && said ? { ...said,
+ * Update the sprite's position and direction.
+ * @param {{x:number, y:number, deg:number}} to
+ * @param {boolean} checkRun - Only update if running, unless checkRun is false
+ * @param {number} spriteIndex - Index of sprite to update (defaults to activeSprite)
+ */
+const updateSpritePos = useCallback((to, checkRun, spriteIndex = activeSprite) => {
+    if (!checkRun || JSON.parse(sessionStorage.getItem('run'))) {
+        setSprites(sprites => sprites.map((sprite, index) => 
+            index === spriteIndex ? { ...sprite, position: to } : sprite
+        ));
+    }
+}, [activeSprite]);
+/**
+ * Handler for when the sprite is clicked (starts run mode).
+ * @param {number} spriteIndex - Index of sprite that was clicked (defaults to activeSprite)
+ */
+const clickTheSprite = (spriteIndex = activeSprite) => {
+    triggerRun()
+    setRunningSprite(spriteIndex); // Track which sprite is running
+    setSprites(sprites => sprites.map((sprite, index) => 
+        index === spriteIndex ? { ...sprite, clicked: true } : sprite
+    ));
+}
+/**
+ * Pin or unpin the sprite for editing.
+ * @param {boolean} should
+ * @param {number} spriteIndex - Index of sprite to pin/unpin (defaults to activeSprite)
+ */
+const pinTheSprite = (should, spriteIndex = activeSprite) => { 
+    setSprites(sprites => sprites.map((sprite, index) => 
+        index === spriteIndex ? { ...sprite, pinned: should } : sprite
+    )); 
+}
+/**
+ * Set the sprite's speech/thought bubble.
+ * @param {object} speak
+ */
+const makeSpriteSpeak = speak => {
+    setSprites(sprites => sprites.map((sprite, index) => 
+        index === runningSprite ? { ...sprite, speak: speak && sprite.speak ? { 
+            ...sprite.speak,
             act: speak.act,
             speakWhat: speak.speakWhat
-        } : speak))
-    }
-    /**
-     * Resize the sprite.
-     * @param {number} size
-     */
-    const resizeSprite = useCallback((size) => {
-        setSpriteSize(size);
-    }, []);
+        } : speak } : sprite
+    ));
+}
+/**
+ * Resize the sprite.
+ * @param {number} size
+ */
+const resizeSprite = useCallback((size) => {
+    setSprites(sprites => sprites.map((sprite, index) => 
+        index === runningSprite ? { ...sprite, size: size } : sprite
+    ));
+}, [runningSprite]);
     /**
      * Set the currently picked/dragged block.
      * @param {object|null} block
@@ -182,9 +251,8 @@ const Editor = () => {
     }
     /**
      * Handler for releasing a block outside a drop area.
-     * @param {MouseEvent} event
      */
-    const handleBlockReleaseOutsideDrop = event => {
+    const handleBlockReleaseOutsideDrop = () => {
         pickBlock(null)
         setBlockAt({ x: 0, y: 0 })
         if(combinationPinned != null)
@@ -229,15 +297,25 @@ const Editor = () => {
      * @param {boolean} checkRun
      */
     const spriteMotionTrigger = useCallback((func, checkRun) => {
+        // Use execution ref for synchronous access, fallback to state, then sprite state
+        const currentSpritePos = executionStateRef.current?.position || currentExecutionState?.position || sprites[runningSprite]?.position || { x: 0, y: 0, deg: 0 };
         let spritePos = null;
         if (func.what === 'move')
-            spritePos = moveTrigger(spriteAt, func.options.dir, func.options.units);
+            spritePos = moveTrigger(currentSpritePos, func.options.dir, func.options.units);
         else if (func.what === 'turn')
-            spritePos = turnTrigger(spriteAt, func.options);
+            spritePos = turnTrigger(currentSpritePos, func.options);
         else
-            spritePos = gotoTrigger(spriteAt, func.options);
-        updateSpritePos(spritePos, checkRun);
-    }, [spriteAt, updateSpritePos]);
+            spritePos = gotoTrigger(currentSpritePos, func.options);
+        
+        // During execution, update both ref and state
+        if (executionStateRef.current) {
+            executionStateRef.current = { ...executionStateRef.current, position: spritePos };
+            setCurrentExecutionState(prev => ({ ...prev, position: spritePos }));
+        } else {
+            // If no execution state (single block click), update sprite directly
+            updateSpritePos(spritePos, checkRun, runningSprite);
+        }
+    }, [sprites, runningSprite, currentExecutionState, updateSpritePos]);
     /**
      * Triggers sprite look changes (say, think, resize) based on the block's function.
      * @param {object} func
@@ -248,9 +326,18 @@ const Editor = () => {
             if (func.timed)
                 makeSpriteSpeak(await speakTrigger(func.time));
         } else {
-            resizeSprite(resizeTrigger(spriteSize, func.definite, func.to));
+            const currentSpriteSize = currentExecutionState?.size || sprites[runningSprite]?.size || 1;
+            const newSize = resizeTrigger(currentSpriteSize, func.definite, func.to);
+            
+            // During execution, only update execution state
+            if (currentExecutionState) {
+                setCurrentExecutionState(prev => ({ ...prev, size: newSize }));
+            } else {
+                // If no execution state (single block click), update sprite directly
+                resizeSprite(newSize);
+            }
         }
-    }, [resizeSprite, spriteSize]);
+    }, [sprites, runningSprite, currentExecutionState, resizeSprite]);
     /**
      * Returns a promise that resolves to the next index in a run loop after a short delay.
      * @param {number} i
@@ -297,8 +384,19 @@ const Editor = () => {
      * @param {boolean} repeat - Whether this is a repeat/looped run
      */
     const runByBlockClick = useCallback(async (block, repeat) => {
-        if (!repeat)
+        let executionState = null;
+        
+        if (!repeat) {
             triggerRun();
+            // Initialize execution state with current sprite state
+            const currentSprite = sprites[runningSprite] || sprites[0];
+            executionState = {
+                position: currentSprite.position,
+                size: currentSprite.size
+            };
+            executionStateRef.current = executionState;
+            setCurrentExecutionState(executionState);
+        }
         if (repeat && !JSON.parse(sessionStorage.getItem('run')))
             return;
         let func = null;
@@ -310,9 +408,25 @@ const Editor = () => {
             await checkWhatAndRun(func, checkRun);
             i = await getNextInRunLoop(i);
         }
-        if (!repeat)
+        if (!repeat) {
             stopRun();
-    }, [checkWhatAndRun, getNextInRunLoop]);
+            // Sync final execution state to visual sprite
+            if (executionStateRef.current) {
+                const finalState = executionStateRef.current;
+                updateSpritePos(finalState.position, false, runningSprite);
+                setSprites(sprites => sprites.map((sprite, index) => 
+                    index === runningSprite ? { 
+                        ...sprite, 
+                        position: finalState.position,
+                        size: finalState.size 
+                    } : sprite
+                ));
+            }
+            // Clear execution state
+            executionStateRef.current = null;
+            setCurrentExecutionState(null);
+        }
+    }, [checkWhatAndRun, getNextInRunLoop, sprites, runningSprite, updateSpritePos]);
 
     // --- Memoize context value ---
     /**
@@ -360,6 +474,7 @@ const Editor = () => {
                 <div className="ml-auto mr-5 cursor-pointer" onClick={() => {
                         if(section == 0) {
                             triggerRun()
+                            setRunningSprite(activeSprite); // Set running sprite for flag click
                             setFlagClicked(true)
                         }
                         else
@@ -374,7 +489,7 @@ const Editor = () => {
             </div>
             {section == 0 ?
             <div className="playground flex flex-row" onMouseMove={event => handleBlockMove(event)}
-                onMouseUp={event => handleBlockReleaseOutsideDrop(event)}>
+                onMouseUp={() => handleBlockReleaseOutsideDrop()}>
                 <div className="flex-1 overflow-hidden flex flex-row bg-white border-t border-r border-gray-200 rounded-r-xl mr-1">
                     <SpriteActionsContext.Provider value={spriteActionsContextValue}>
                         <Sidebar />
@@ -383,15 +498,23 @@ const Editor = () => {
                             pinTheCombination={combination => pinTheCombination(combination)}
                             pickBlock={block => pickBlock(block)}
                             releasePinOnCombination={combo => releasePinOnCombination(combo)}
-                            runByBlockClick={(block, repeat) => runByBlockClick(block, repeat)} />
+                            runByBlockClick={(block, repeat) => {
+                                setRunningSprite(activeSprite); // Set running sprite when combo is clicked
+                                runByBlockClick(block, repeat);
+                            }} />
                     </SpriteActionsContext.Provider>
                 </div>
                 <div className="w-1/3 overflow-hidden flex flex-row bg-white border-t border-l border-gray-200 rounded-l-xl ml-1">
-                    <PreviewArea costumes={costumes} inUse={inUse} spriteAt={spriteAt}
-                        updateSpritePos={(to, checkRun) => updateSpritePos(to, checkRun)}
-                        clickTheSprite={() => clickTheSprite()}
-                        pinTheSprite={should => pinTheSprite(should)} spritePinned={spritePinned}
-                        speak={speak} spriteSize={spriteSize} />
+                    <PreviewArea 
+                        costumes={costumes} 
+                        sprites={sprites}
+                        activeSprite={activeSprite}
+                        updateSpritePos={(to, checkRun, spriteIndex) => updateSpritePos(to, checkRun, spriteIndex)}
+                        clickTheSprite={(spriteIndex) => clickTheSprite(spriteIndex)}
+                        pinTheSprite={(should, spriteIndex) => pinTheSprite(should, spriteIndex)}
+                        addSprite={(costumeIndex) => addSprite(costumeIndex)}
+                        removeSprite={(spriteIndex) => removeSprite(spriteIndex)}
+                        selectActiveSprite={(spriteIndex) => selectActiveSprite(spriteIndex)} />
                 </div>
                 {block != null &&
                     <div className="absolute" style={{
@@ -403,8 +526,13 @@ const Editor = () => {
             </div> : (section == 1 ?
             <div className="playground flex flex-row">
                 <div className="flex-1 h-full overflow-auto flex flex-row bg-white border-t border-r border-gray-200 rounded-r-xl mr-4">
-                    <CostumeArea costumes={costumes} addCostume={newCostume => addCostume(newCostume)}
-                        inUse={inUse} changeCostume={to => changeCostume(to)} />
+                    <CostumeArea 
+                        costumes={costumes} 
+                        addCostume={newCostume => addCostume(newCostume)}
+                        inUse={inUse} 
+                        changeCostume={to => changeCostume(to)}
+                        activeSprite={activeSprite} 
+                        addSprite={(costumeIndex) => addSprite(costumeIndex)} />
                 </div>
             </div> :
             <div className="playground flex flex-row">
@@ -413,11 +541,16 @@ const Editor = () => {
                         updateReplayId={id => updateReplayId(id)} />
                 </div>
                 <div className="w-1/3 overflow-hidden flex flex-row bg-white border-t border-l border-gray-200 rounded-l-xl ml-1">
-                    <PreviewArea costumes={costumes} inUse={inUse} spriteAt={spriteAt}
-                        updateSpritePos={(to, checkRun) => updateSpritePos(to, checkRun)}
-                        clickTheSprite={() => clickTheSprite()}
-                        pinTheSprite={should => pinTheSprite(should)} spritePinned={spritePinned}
-                        speak={speak} spriteSize={spriteSize} />
+                    <PreviewArea 
+                        costumes={costumes} 
+                        sprites={sprites}
+                        activeSprite={activeSprite}
+                        updateSpritePos={(to, checkRun, spriteIndex) => updateSpritePos(to, checkRun, spriteIndex)}
+                        clickTheSprite={(spriteIndex) => clickTheSprite(spriteIndex)}
+                        pinTheSprite={(should, spriteIndex) => pinTheSprite(should, spriteIndex)}
+                        addSprite={(costumeIndex) => addSprite(costumeIndex)}
+                        removeSprite={(spriteIndex) => removeSprite(spriteIndex)}
+                        selectActiveSprite={(spriteIndex) => selectActiveSprite(spriteIndex)} />
                 </div>
             </div>)}
         </div>
